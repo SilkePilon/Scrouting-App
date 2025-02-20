@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "MyHike",
+    "slug": "MyHike",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "infoPlist": {
+        "UIBackgroundModes": ["location"]
+      },
+      "config": {
+        "googleMapsApiKey": "AIzaSyDpGEwEa8aU0ZfDlBOyR4lKJuDyTBRPiaU"
+      },
+      "supportsTablet": true
+    },
+    "android": {
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDpGEwEa8aU0ZfDlBOyR4lKJuDyTBRPiaU"
+        },
+        "adaptiveIcon": {
+          "foregroundImage": "./assets/adaptive-icon.png",
+          "backgroundColor": "#ffffff"
+        },
+        "package": "com.silkepilon.MyHike"
+      },
+      "package": "com.silkepilon.MyHike"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "f3214b4d-01f3-4816-9251-88b3aab55fa7"
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location.",
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location while the app is in use.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true
+        }
+      ]
+    ]
+  }
+}
