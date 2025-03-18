@@ -1,6 +1,6 @@
 "use client"
-import React, { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import React, { useEffect, useState, Suspense } from "react"
+import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,11 +13,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Combobox } from "@/components/ui/combobox"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+
 type Event = Database["public"]["Tables"]["events"]["Row"]
 type Post = Database["public"]["Tables"]["posts"]["Row"] & { volunteers?: { id: string; name: string }[] }
 type WalkingGroup = Database["public"]["Tables"]["walking_groups"]["Row"]
 type Checkpoint = Database["public"]["Tables"]["checkpoints"]["Row"] & { post: { name: string } }
-export default function EventDetail({ params }: { params: { id: string } }) {
+type Volunteer = { id: string; name: string }
+
+async function EventDetailContent({ eventId }: { eventId: string }) {
   const router = useRouter()
   const { supabase, user } = useSupabase()
   const { toast } = useToast()
@@ -29,11 +38,10 @@ export default function EventDetail({ params }: { params: { id: string } }) {
   const [newPostName, setNewPostName] = useState("")
   const [newPostLocation, setNewPostLocation] = useState("")
   const [newGroupName, setNewGroupName] = useState("")
-  
-  // Unwrap the params object using React.use()
-  const unwrappedParams = params as { id: string };
-  const eventId = unwrappedParams.id;
-  
+  const [editingPost, setEditingPost] = useState<Post | null>(null)
+  const [availableVolunteers, setAvailableVolunteers] = useState<Volunteer[]>([])
+  const [selectedVolunteer, setSelectedVolunteer] = useState("")
+
   useEffect(() => {
     if (!user) {
       router.push("/login")
@@ -64,7 +72,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
         if (postsError) throw postsError
         // Fetch volunteer names
         const postsWithVolunteers = await Promise.all(
-          postsData.map(async (post) => {
+          postsData.map(async (post: any) => {
             const volunteers = []
             if (post.post_volunteers && post.post_volunteers.length > 0) {
               const userIds = post.post_volunteers.map((v: any) => v.user_id)
@@ -102,7 +110,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
           `)
           .in(
             "walking_group_id",
-            groupsData.map((g) => g.id),
+            groupsData.map((g: WalkingGroup) => g.id),
           )
           .order("checked_at", { ascending: false })
         if (checkpointsError) throw checkpointsError
@@ -120,7 +128,178 @@ export default function EventDetail({ params }: { params: { id: string } }) {
     fetchEventData()
   }, [supabase, eventId, user, router, toast])
   
-  // Rest of the component remains unchanged
+  // Add useEffect to fetch available volunteers
+  useEffect(() => {
+    const fetchVolunteers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("volunteers")
+          .select("id, name")
+          .eq("event_id", eventId)
+        
+        if (error) throw error
+        setAvailableVolunteers(data || [])
+      } catch (error: any) {
+        toast({
+          title: "Fout bij ophalen vrijwilligers",
+          description: error.message,
+          variant: "destructive",
+        })
+      }
+    }
+    
+    if (event) {
+      fetchVolunteers()
+    }
+  }, [supabase, eventId, event, toast])
+
+  const deletePost = async (postId: string) => {
+    if (!confirm("Weet je zeker dat je deze post wilt verwijderen?")) return
+
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .delete()
+        .eq("id", postId)
+
+      if (error) throw error
+
+      setPosts(posts.filter(p => p.id !== postId))
+      toast({
+        title: "Post verwijderd",
+        description: "De post is succesvol verwijderd.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Fout bij verwijderen",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const updatePost = async (postId: string, updates: Partial<Post>) => {
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .update(updates)
+        .eq("id", postId)
+
+      if (error) throw error
+
+      setPosts(posts.map(p => p.id === postId ? { ...p, ...updates } : p))
+      setEditingPost(null)
+      toast({
+        title: "Post bijgewerkt",
+        description: "De post is succesvol bijgewerkt.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Fout bij bijwerken",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const assignVolunteer = async (postId: string, volunteerId: string) => {
+    try {
+      // First check if volunteer is already assigned to another post
+      const { data: existingAssignment, error: checkError } = await supabase
+        .from("post_volunteers")
+        .select("id")
+        .eq("user_id", volunteerId)
+        .single()
+
+      if (checkError && checkError.code !== "PGRST116") throw checkError
+
+      if (existingAssignment) {
+        toast({
+          title: "Vrijwilliger al toegewezen",
+          description: "Deze vrijwilliger is al toegewezen aan een andere post.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Assign volunteer to post
+      const { error } = await supabase
+        .from("post_volunteers")
+        .insert({
+          post_id: postId,
+          user_id: volunteerId
+        })
+
+      if (error) throw error
+
+      // Refresh posts to update UI
+      const { data: refreshedPost, error: refreshError } = await supabase
+        .from("posts")
+        .select(`
+          *,
+          post_volunteers (
+            id,
+            user_id,
+            users (
+              id,
+              name
+            )
+          )
+        `)
+        .eq("id", postId)
+        .single()
+
+      if (refreshError) throw refreshError
+
+      const volunteer = refreshedPost.post_volunteers[0].users
+      setPosts(posts.map(p => p.id === postId ? {
+        ...p,
+        volunteers: [...(p.volunteers || []), volunteer]
+      } : p))
+
+      toast({
+        title: "Vrijwilliger toegewezen",
+        description: "De vrijwilliger is succesvol toegewezen aan de post.",
+      })
+      
+      setSelectedVolunteer("")
+    } catch (error: any) {
+      toast({
+        title: "Fout bij toewijzen",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  }
+
+  const removeVolunteer = async (postId: string, volunteerId: string) => {
+    try {
+      const { error } = await supabase
+        .from("post_volunteers")
+        .delete()
+        .eq("post_id", postId)
+        .eq("user_id", volunteerId)
+
+      if (error) throw error
+
+      setPosts(posts.map(p => p.id === postId ? {
+        ...p,
+        volunteers: p.volunteers?.filter(v => v.id !== volunteerId) || []
+      } : p))
+
+      toast({
+        title: "Vrijwilliger verwijderd",
+        description: "De vrijwilliger is succesvol verwijderd van de post.",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Fout bij verwijderen",
+        description: error.message,
+        variant: "destructive",
+      })
+    }
+  }
+
   const copyAccessCode = () => {
     if (!event) return
     navigator.clipboard.writeText(event.access_code)
@@ -325,16 +504,86 @@ export default function EventDetail({ params }: { params: { id: string } }) {
                     <Card key={post.id} className="rounded-xl shadow-md">
                       <CardContent className="pt-6">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <h4 className="font-bold">{post.name}</h4>
-                            {post.location && <p className="text-sm text-muted-foreground">{post.location}</p>}
-                            <div className="mt-2">
-                              <p className="text-sm font-medium">Vrijwilligers:</p>
+                          <div className="space-y-4 w-full">
+                            {editingPost?.id === post.id ? (
+                              <div className="space-y-2">
+                                <Input
+                                  value={editingPost.name}
+                                  onChange={(e) => setEditingPost({ ...editingPost, name: e.target.value })}
+                                  placeholder="Post naam"
+                                />
+                                <Input
+                                  value={editingPost.location || ""}
+                                  onChange={(e) => setEditingPost({ ...editingPost, location: e.target.value })}
+                                  placeholder="Locatie"
+                                />
+                                <div className="flex gap-2">
+                                  <Button onClick={() => updatePost(post.id, editingPost)} size="sm">
+                                    Opslaan
+                                  </Button>
+                                  <Button onClick={() => setEditingPost(null)} variant="outline" size="sm">
+                                    Annuleren
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div>
+                                  <h4 className="font-bold">{post.name}</h4>
+                                  {post.location && <p className="text-sm text-muted-foreground">{post.location}</p>}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button onClick={() => setEditingPost(post)} variant="outline" size="sm">
+                                    Bewerken
+                                  </Button>
+                                  <Button onClick={() => deletePost(post.id)} variant="destructive" size="sm">
+                                    Verwijderen
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                            
+                            <div className="mt-4">
+                              <div className="flex justify-between items-center mb-2">
+                                <p className="text-sm font-medium">Vrijwilligers:</p>
+                                <div className="flex gap-2">
+                                  <div className="w-[200px]">
+                                    <Combobox
+                                      options={availableVolunteers.map(v => ({
+                                        value: v.id,
+                                        label: v.name
+                                      }))}
+                                      value={selectedVolunteer}
+                                      onValueChange={setSelectedVolunteer}
+                                      placeholder="Selecteer vrijwilliger"
+                                      emptyText="Geen vrijwilligers gevonden"
+                                    />
+                                  </div>
+                                  <Button
+                                    onClick={() => selectedVolunteer && assignVolunteer(post.id, selectedVolunteer)}
+                                    size="sm"
+                                    disabled={!selectedVolunteer}
+                                  >
+                                    Toewijzen
+                                  </Button>
+                                </div>
+                              </div>
+                              
                               {post.volunteers && post.volunteers.length > 0 ? (
-                                <div className="flex flex-wrap gap-1 mt-1">
+                                <div className="flex flex-wrap gap-1">
                                   {post.volunteers.map((volunteer) => (
-                                    <Badge key={volunteer.id} variant="outline">
+                                    <Badge
+                                      key={volunteer.id}
+                                      variant="outline"
+                                      className="flex items-center gap-1"
+                                    >
                                       {volunteer.name}
+                                      <button
+                                        onClick={() => removeVolunteer(post.id, volunteer.id)}
+                                        className="ml-1 text-xs hover:text-destructive"
+                                      >
+                                        ×
+                                      </button>
                                     </Badge>
                                   ))}
                                 </div>
@@ -343,7 +592,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
                               )}
                             </div>
                           </div>
-                          <Badge>{`Post ${index + 1}`}</Badge>
+                          <Badge className="ml-4 whitespace-nowrap">{`Post ${index + 1}`}</Badge>
                         </div>
                       </CardContent>
                     </Card>
@@ -477,6 +726,18 @@ export default function EventDetail({ params }: { params: { id: string } }) {
         </Tabs>
       </div>
     </div>
+  )
+}
+
+export default async function EventDetail({ params }: { params: { id: string } }) {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Laden...</p>
+      </div>
+    }>
+      <EventDetailContent eventId={params.id} />
+    </Suspense>
   )
 }
 
