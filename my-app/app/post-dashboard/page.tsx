@@ -1,17 +1,17 @@
 "use client"
-
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { LogOut, CheckCircle } from "lucide-react"
-import { useSupabase } from "@/lib/supabase-provider"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import type { Database } from "@/lib/database.types"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 // Add the import for ThemeToggle
 import { ThemeToggle } from "@/components/theme-toggle"
+import Link from "next/link"
 
 type Event = Database["public"]["Tables"]["events"]["Row"]
 type Post = Database["public"]["Tables"]["posts"]["Row"]
@@ -20,12 +20,20 @@ type Checkpoint = Database["public"]["Tables"]["checkpoints"]["Row"] & {
   walking_group: { name: string }
   post: { name: string }
 }
+type VolunteerSession = {
+  id: string;
+  name: string;
+  event_id: string;
+  event_name: string;
+  timestamp: string;
+}
 
 export default function PostDashboard() {
   const router = useRouter()
-  const { supabase, user } = useSupabase()
+  const supabase = createClientComponentClient<Database>()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
+  const [volunteerSession, setVolunteerSession] = useState<VolunteerSession | null>(null)
   const [event, setEvent] = useState<Event | null>(null)
   const [assignedPost, setAssignedPost] = useState<Post | null>(null)
   const [walkingGroups, setWalkingGroups] = useState<WalkingGroup[]>([])
@@ -34,84 +42,95 @@ export default function PostDashboard() {
   const [notes, setNotes] = useState<string>("")
 
   useEffect(() => {
-    if (!user) {
-      router.push("/login")
-      return
+    // Check for volunteer session in localStorage
+    const checkSession = () => {
+      try {
+        const sessionData = localStorage.getItem('volunteerSession')
+        if (!sessionData) {
+          router.push('/login')
+          return
+        }
+        
+        const session: VolunteerSession = JSON.parse(sessionData)
+        setVolunteerSession(session)
+        return session
+      } catch (error) {
+        console.error("Error retrieving volunteer session:", error)
+        router.push('/login')
+        return null
+      }
     }
-
+    
     const fetchData = async () => {
       try {
-        // Get user metadata to find event_id
-        const { data: userData } = await supabase.auth.getUser()
-        const eventId = userData.user?.user_metadata?.event_id
+        const session = checkSession()
+        if (!session) return
+        
+        // Get event details
+        const { data: eventData, error: eventError } = await supabase
+          .from("events")
+          .select("*")
+          .eq("id", session.event_id)
+          .single()
+        
+        if (eventError) throw eventError
+        setEvent(eventData)
 
-        if (!eventId) {
-          // Try to find assigned post
-          const { data: volunteerData, error: volunteerError } = await supabase
-            .from("post_volunteers")
+        // Try to find assigned post for this volunteer
+        const { data: volunteerData, error: volunteerError } = await supabase
+          .from("posts")
+          .select(`
+            id,
+            name,
+            location,
+            event_id,
+            description,
+            order_number
+          `)
+          .eq("event_id", session.event_id)
+          .limit(1)
+          .maybeSingle()
+        
+        if (volunteerError && volunteerError.code !== "PGRST116") {
+          throw volunteerError
+        }
+        
+        if (volunteerData) {
+          setAssignedPost(volunteerData)
+          
+          // Get walking groups
+          const { data: groupsData, error: groupsError } = await supabase
+            .from("walking_groups")
+            .select("*")
+            .eq("event_id", session.event_id)
+            .order("name", { ascending: true })
+          
+          if (groupsError) throw groupsError
+          setWalkingGroups(groupsData)
+          
+          // Get checkpoints for this post
+          const { data: checkpointsData, error: checkpointsError } = await supabase
+            .from("checkpoints")
             .select(`
-              post_id,
-              posts (
-                id,
-                name,
-                location,
-                event_id
+              *,
+              walking_group:walking_groups (
+                name
+              ),
+              post:posts (
+                name
               )
             `)
-            .eq("user_id", user.id)
-            .single()
-
-          if (volunteerError && volunteerError.code !== "PGRST116") {
-            throw volunteerError
-          }
-
-          if (volunteerData) {
-            setAssignedPost(volunteerData.posts as Post)
-
-            // Get event details
-            const { data: eventData, error: eventError } = await supabase
-              .from("events")
-              .select("*")
-              .eq("id", volunteerData.posts.event_id)
-              .single()
-
-            if (eventError) throw eventError
-            setEvent(eventData)
-
-            // Get walking groups
-            const { data: groupsData, error: groupsError } = await supabase
-              .from("walking_groups")
-              .select("*")
-              .eq("event_id", volunteerData.posts.event_id)
-              .order("name", { ascending: true })
-
-            if (groupsError) throw groupsError
-            setWalkingGroups(groupsData)
-
-            // Get checkpoints for this post
-            const { data: checkpointsData, error: checkpointsError } = await supabase
-              .from("checkpoints")
-              .select(`
-                *,
-                walking_group:walking_groups (
-                  name
-                ),
-                post:posts (
-                  name
-                )
-              `)
-              .eq("post_id", volunteerData.posts.id)
-              .order("checked_at", { ascending: false })
-
-            if (checkpointsError) throw checkpointsError
-            setCheckpoints(checkpointsData)
-          } else {
-            toast({
-              title: "Geen post toegewezen",
-              description: "Je bent nog niet toegewezen aan een post. Vraag de organisator om je toe te wijzen.",
-              variant: "destructive",
-            })
-          }
+            .eq("post_id", volunteerData.id)
+            .order("checked_at", { ascending: false })
+          
+          if (checkpointsError) throw checkpointsError
+          setCheckpoints(checkpointsData)
+        } else {
+          toast({
+            title: "Geen post toegewezen",
+            description: "Er is nog geen post beschikbaar. Vraag de organisator om een post toe te voegen.",
+            variant: "destructive",
+          })
         }
       } catch (error: any) {
         toast({
@@ -123,19 +142,17 @@ export default function PostDashboard() {
         setLoading(false)
       }
     }
-
+    
     fetchData()
-  }, [supabase, user, router, toast])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push("/")
-    router.refresh()
+  }, [supabase, router, toast])
+  
+  const handleSignOut = () => {
+    localStorage.removeItem('volunteerSession')
+    router.push("/login")
   }
-
+  
   const registerCheckpoint = async () => {
-    if (!assignedPost || !selectedGroup) return
-
+    if (!assignedPost || !selectedGroup || !volunteerSession) return
     try {
       // Check if this group has already been checked at this post
       const { data: existingCheck, error: checkError } = await supabase
@@ -144,9 +161,9 @@ export default function PostDashboard() {
         .eq("walking_group_id", selectedGroup)
         .eq("post_id", assignedPost.id)
         .maybeSingle()
-
+      
       if (checkError) throw checkError
-
+      
       if (existingCheck) {
         toast({
           title: "Groep al geregistreerd",
@@ -155,25 +172,25 @@ export default function PostDashboard() {
         })
         return
       }
-
+      
       // Register new checkpoint
       const { data, error } = await supabase
         .from("checkpoints")
         .insert({
           walking_group_id: selectedGroup,
           post_id: assignedPost.id,
-          checked_by: user!.id,
+          checked_by: volunteerSession.id,
           notes: notes,
         })
         .select()
-
+      
       if (error) throw error
-
+      
       toast({
         title: "Groep geregistreerd",
         description: "De loopgroep is succesvol geregistreerd bij deze post.",
       })
-
+      
       // Refresh checkpoints
       const { data: refreshedData, error: refreshError } = await supabase
         .from("checkpoints")
@@ -188,10 +205,10 @@ export default function PostDashboard() {
         `)
         .eq("post_id", assignedPost.id)
         .order("checked_at", { ascending: false })
-
+      
       if (refreshError) throw refreshError
       setCheckpoints(refreshedData)
-
+      
       // Reset form
       setSelectedGroup("")
       setNotes("")
@@ -215,25 +232,32 @@ export default function PostDashboard() {
   if (!assignedPost) {
     return (
       <div className="min-h-screen bg-muted">
-        <header className="bg-primary py-4">
+        <header className="bg-primary py-4 rounded-b-xl">
           <div className="container mx-auto px-4">
             <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
-              <Button variant="secondary" size="sm" onClick={handleSignOut}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Uitloggen
-              </Button>
+              <Link href="/">
+                <h1 className="text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
+              </Link>
+              <div className="flex items-center space-x-2">
+                <ThemeToggle />
+                <Button variant="secondary" size="sm" onClick={handleSignOut} className="rounded-full">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Uitloggen
+                </Button>
+              </div>
             </div>
           </div>
         </header>
-
         <main className="container mx-auto px-4 py-8">
-          <Card>
+          <Card className="rounded-xl shadow-md">
+            <CardHeader>
+              <CardTitle>Geen post beschikbaar</CardTitle>
+            </CardHeader>
             <CardContent className="pt-6 text-center">
               <p className="mb-4">
-                Je bent nog niet toegewezen aan een post. Vraag de organisator om je toe te wijzen.
+                Er zijn nog geen posten aangemaakt voor dit evenement. Vraag de organisator om posten toe te voegen.
               </p>
-              <Button onClick={handleSignOut}>Uitloggen</Button>
+              <Button onClick={handleSignOut} className="rounded-full">Uitloggen</Button>
             </CardContent>
           </Card>
         </main>
@@ -241,13 +265,14 @@ export default function PostDashboard() {
     )
   }
 
-  // Update the return statement to include a header with the theme toggle
   return (
     <div className="min-h-screen bg-muted">
       <header className="bg-primary py-4 rounded-b-xl">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
+            <Link href="/">
+              <h1 className="text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
+            </Link>
             <div className="flex items-center space-x-2">
               <ThemeToggle />
               <Button variant="secondary" size="sm" onClick={handleSignOut} className="rounded-full">
@@ -258,16 +283,17 @@ export default function PostDashboard() {
           </div>
         </div>
       </header>
-
+      
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 bg-background p-6 rounded-xl shadow-md">
           <h2 className="text-3xl font-bold">Post Dashboard</h2>
           <div className="mt-2">
             <p className="text-xl font-medium">{assignedPost.name}</p>
             {assignedPost.location && <p className="text-muted-foreground">{assignedPost.location}</p>}
+            {volunteerSession && <p className="text-sm text-muted-foreground mt-2">Ingelogd als: {volunteerSession.name}</p>}
           </div>
         </div>
-
+        
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="rounded-xl shadow-md">
             <CardHeader>
@@ -308,7 +334,7 @@ export default function PostDashboard() {
               </Button>
             </CardFooter>
           </Card>
-
+          
           <div className="space-y-4">
             <h3 className="text-xl font-bold">Recente Registraties</h3>
             {checkpoints.length === 0 ? (

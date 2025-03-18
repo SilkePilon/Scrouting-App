@@ -150,6 +150,29 @@ export interface Database {
           notes?: string | null
         }
       }
+      volunteers: {
+        Row: {
+          id: string
+          name: string
+          event_id: string
+          login_timestamp: string
+          last_activity: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          event_id: string
+          login_timestamp?: string
+          last_activity?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          event_id?: string
+          login_timestamp?: string
+          last_activity?: string | null
+        }
+      }
     }
   }
 }

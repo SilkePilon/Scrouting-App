@@ -60,7 +60,7 @@ export default function Login() {
     setLoading(true)
 
     try {
-      // 1. Check if the access code exists
+      // 1. Check if the access code exists and get event data
       const { data: eventData, error: eventError } = await supabase
         .from("events")
         .select("id, name")
@@ -70,34 +70,27 @@ export default function Login() {
 
       if (eventError) throw new Error("Ongeldige toegangscode")
 
-      // 2. Create a temporary account for the volunteer
-      // Using a valid email format with username part (local-part) having no special characters
-      // and a valid domain that exists
-      const timestamp = Date.now()
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: `volunteer${timestamp}@example.com`,
-        password: `${accessCode}-${timestamp}`,
-        options: {
-          data: {
-            event_id: eventData.id,
-            is_volunteer: true,
-          },
-        },
-      })
-
-      if (authError) throw authError
-
-      // 3. Insert user data into our custom users table
-      if (authData.user) {
-        const { error: profileError } = await supabase.from("users").insert({
-          id: authData.user.id,
-          email: authData.user.email!,
+      // 2. Create a volunteer entry directly in a custom volunteers table
+      const { data: volunteerData, error: volunteerError } = await supabase
+        .from("volunteers")
+        .insert({
           name: volunteerName,
-          is_admin: false,
+          event_id: eventData.id,
+          login_timestamp: new Date().toISOString(),
         })
+        .select()
+        .single()
 
-        if (profileError) throw profileError
-      }
+      if (volunteerError) throw volunteerError
+
+      // Store the volunteer session data in localStorage
+      localStorage.setItem('volunteerSession', JSON.stringify({
+        id: volunteerData.id,
+        name: volunteerName,
+        event_id: eventData.id,
+        event_name: eventData.name,
+        timestamp: new Date().toISOString()
+      }))
 
       toast({
         title: "Inloggen gelukt!",
