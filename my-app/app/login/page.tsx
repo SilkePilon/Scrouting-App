@@ -71,9 +71,12 @@ export default function Login() {
       if (eventError) throw new Error("Ongeldige toegangscode")
 
       // 2. Create a temporary account for the volunteer
+      // Using a valid email format with username part (local-part) having no special characters
+      // and a valid domain that exists
+      const timestamp = Date.now()
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: `volunteer-${Date.now()}@temp.scoutinghike.nl`,
-        password: `${accessCode}-${Date.now()}`,
+        email: `volunteer${timestamp}@example.com`,
+        password: `${accessCode}-${timestamp}`,
         options: {
           data: {
             event_id: eventData.id,

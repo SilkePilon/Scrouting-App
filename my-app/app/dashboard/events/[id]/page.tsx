@@ -1,6 +1,5 @@
 "use client"
-
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -14,12 +13,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
-
 type Event = Database["public"]["Tables"]["events"]["Row"]
 type Post = Database["public"]["Tables"]["posts"]["Row"] & { volunteers?: { id: string; name: string }[] }
 type WalkingGroup = Database["public"]["Tables"]["walking_groups"]["Row"]
 type Checkpoint = Database["public"]["Tables"]["checkpoints"]["Row"] & { post: { name: string } }
-
 export default function EventDetail({ params }: { params: { id: string } }) {
   const router = useRouter()
   const { supabase, user } = useSupabase()
@@ -32,25 +29,26 @@ export default function EventDetail({ params }: { params: { id: string } }) {
   const [newPostName, setNewPostName] = useState("")
   const [newPostLocation, setNewPostLocation] = useState("")
   const [newGroupName, setNewGroupName] = useState("")
-
+  
+  // Unwrap the params object using React.use()
+  const unwrappedParams = params as { id: string };
+  const eventId = unwrappedParams.id;
+  
   useEffect(() => {
     if (!user) {
       router.push("/login")
       return
     }
-
     const fetchEventData = async () => {
       try {
         // Fetch event details
         const { data: eventData, error: eventError } = await supabase
           .from("events")
           .select("*")
-          .eq("id", params.id)
+          .eq("id", eventId)
           .single()
-
         if (eventError) throw eventError
         setEvent(eventData)
-
         // Fetch posts with volunteers
         const { data: postsData, error: postsError } = await supabase
           .from("posts")
@@ -61,48 +59,38 @@ export default function EventDetail({ params }: { params: { id: string } }) {
               user_id
             )
           `)
-          .eq("event_id", params.id)
+          .eq("event_id", eventId)
           .order("order_number", { ascending: true })
-
         if (postsError) throw postsError
-
         // Fetch volunteer names
         const postsWithVolunteers = await Promise.all(
           postsData.map(async (post) => {
             const volunteers = []
-
             if (post.post_volunteers && post.post_volunteers.length > 0) {
               const userIds = post.post_volunteers.map((v: any) => v.user_id)
-
               const { data: userData, error: userError } = await supabase
                 .from("users")
                 .select("id, name")
                 .in("id", userIds)
-
               if (!userError && userData) {
                 volunteers.push(...userData)
               }
             }
-
             return {
               ...post,
               volunteers,
             }
           }),
         )
-
         setPosts(postsWithVolunteers)
-
         // Fetch walking groups
         const { data: groupsData, error: groupsError } = await supabase
           .from("walking_groups")
           .select("*")
-          .eq("event_id", params.id)
+          .eq("event_id", eventId)
           .order("name", { ascending: true })
-
         if (groupsError) throw groupsError
         setWalkingGroups(groupsData)
-
         // Fetch checkpoints
         const { data: checkpointsData, error: checkpointsError } = await supabase
           .from("checkpoints")
@@ -117,7 +105,6 @@ export default function EventDetail({ params }: { params: { id: string } }) {
             groupsData.map((g) => g.id),
           )
           .order("checked_at", { ascending: false })
-
         if (checkpointsError) throw checkpointsError
         setCheckpoints(checkpointsData)
       } catch (error: any) {
@@ -130,10 +117,10 @@ export default function EventDetail({ params }: { params: { id: string } }) {
         setLoading(false)
       }
     }
-
     fetchEventData()
-  }, [supabase, params.id, user, router, toast])
-
+  }, [supabase, eventId, user, router, toast])
+  
+  // Rest of the component remains unchanged
   const copyAccessCode = () => {
     if (!event) return
     navigator.clipboard.writeText(event.access_code)
@@ -142,7 +129,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
       description: "De code is naar je klembord gekopieerd.",
     })
   }
-
+  
   const addPost = async () => {
     if (!event) return
 
@@ -188,7 +175,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
       })
     }
   }
-
+  
   const addWalkingGroup = async () => {
     if (!event) return
 
@@ -229,7 +216,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
       })
     }
   }
-
+  
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -237,7 +224,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
       </div>
     )
   }
-
+  
   if (!event) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -245,7 +232,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
       </div>
     )
   }
-
+  
   return (
     <div className="min-h-screen bg-muted">
       <header className="bg-primary py-4 rounded-b-xl">
@@ -263,13 +250,13 @@ export default function EventDetail({ params }: { params: { id: string } }) {
           </div>
         </div>
       </header>
-
+  
       <div className="container mx-auto px-4 py-8">
         <Link href="/dashboard" className="inline-flex items-center mb-6 text-primary hover:underline">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Terug naar dashboard
         </Link>
-
+  
         <div className="mb-8 bg-background p-6 rounded-xl shadow-md">
           <h1 className="text-3xl font-bold">{event.name}</h1>
           <div className="flex items-center mt-2 text-muted-foreground">
@@ -284,7 +271,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
           </div>
           {event.description && <p className="mt-4">{event.description}</p>}
         </div>
-
+  
         <Tabs defaultValue="posts" className="bg-background p-4 rounded-xl shadow-md">
           <TabsList className="mb-4 rounded-lg">
             <TabsTrigger value="posts" className="rounded-l-lg">
@@ -295,7 +282,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
               Voortgang
             </TabsTrigger>
           </TabsList>
-
+  
           <TabsContent value="posts">
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="rounded-xl shadow-md">
@@ -328,7 +315,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
                   </Button>
                 </CardContent>
               </Card>
-
+  
               <div className="space-y-4">
                 <h3 className="text-xl font-bold">Huidige Posten</h3>
                 {posts.length === 0 ? (
@@ -365,7 +352,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
               </div>
             </div>
           </TabsContent>
-
+  
           <TabsContent value="groups">
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="rounded-xl shadow-md">
@@ -389,7 +376,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
                   </Button>
                 </CardContent>
               </Card>
-
+  
               <div className="space-y-4">
                 <h3 className="text-xl font-bold">Huidige Loopgroepen</h3>
                 {walkingGroups.length === 0 ? (
@@ -422,7 +409,7 @@ export default function EventDetail({ params }: { params: { id: string } }) {
               </div>
             </div>
           </TabsContent>
-
+  
           <TabsContent value="progress">
             <Card className="rounded-xl shadow-md">
               <CardHeader>
@@ -450,18 +437,18 @@ export default function EventDetail({ params }: { params: { id: string } }) {
                       <tbody>
                         {walkingGroups.map((group) => {
                           const groupCheckpoints = checkpoints.filter((cp) => cp.walking_group_id === group.id)
-
+  
                           return (
                             <tr key={group.id}>
                               <td className="p-2 border-b font-medium">{group.name}</td>
                               {posts.map((post) => {
                                 const checkpoint = groupCheckpoints.find((cp) => cp.post_id === post.id)
-
+  
                                 return (
                                   <td key={post.id} className="text-center p-2 border-b">
                                     {checkpoint ? (
                                       <div className="flex flex-col items-center">
-                                        <Badge variant="success" className="bg-green-500">
+                                        <Badge variant="default" className="bg-green-500">
                                           ✓
                                         </Badge>
                                         <span className="text-xs mt-1">
