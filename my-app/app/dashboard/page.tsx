@@ -196,12 +196,14 @@ export default function Dashboard() {
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 sm:mb-8">
           <h2 className="text-2xl sm:text-3xl font-bold">Mijn Wandeltochten</h2>
-          <Link href="/dashboard/create-event">
-            <Button className="w-full sm:w-auto rounded-full">
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Nieuwe Wandeltocht
-            </Button>
-          </Link>
+          {events.length > 0 && (
+            <Link href="/dashboard/create-event">
+              <Button className="w-full sm:w-auto rounded-full">
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Nieuwe Wandeltocht
+              </Button>
+            </Link>
+          )}
         </div>
 
         {events.length === 0 ? (
