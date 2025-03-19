@@ -16,6 +16,20 @@ export function PWAInstallPrompt() {
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+
+      // Check if user has previously declined within the past day
+      const lastDeclined = localStorage.getItem('pwaPromptDeclined');
+      if (lastDeclined) {
+        const lastDeclinedDate = new Date(parseInt(lastDeclined));
+        const now = new Date();
+        const dayInMilliseconds = 24 * 60 * 60 * 1000;
+        
+        // If it's been less than a day since declining, don't show the prompt
+        if (now.getTime() - lastDeclinedDate.getTime() < dayInMilliseconds) {
+          return;
+        }
+      }
+
       setDeferredPrompt(e);
       setIsOpen(true);
     };
@@ -40,6 +54,8 @@ export function PWAInstallPrompt() {
   };
 
   const handleDecline = () => {
+    // Save the current timestamp when user declines
+    localStorage.setItem('pwaPromptDeclined', Date.now().toString());
     setIsOpen(false);
   };
 
