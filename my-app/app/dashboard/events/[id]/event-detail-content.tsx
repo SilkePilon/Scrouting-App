@@ -61,7 +61,7 @@ function MobileTabCard({ info, children }: { info: TabInfo; children: React.Reac
                                 <CardDescription>{info.description}</CardDescription>
                             </div>
                         </div>
-                        {info.stats && (
+                        {/* {info.stats && (
                             <div className="grid grid-cols-3 gap-4 mt-4 text-center">
                                 {info.stats.map((stat, index) => (
                                     <div key={index}>
@@ -70,7 +70,7 @@ function MobileTabCard({ info, children }: { info: TabInfo; children: React.Reac
                                     </div>
                                 ))}
                             </div>
-                        )}
+                        )} */}
                     </CardHeader>
                 </Card>
             </DrawerTrigger>
