@@ -16,8 +16,12 @@ export function PWAInstallPrompt() {
   useEffect(() => {
     const handler = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
-      setIsOpen(true);
+      // Check if user previously clicked "Maybe Later"
+      const hasDeclined = localStorage.getItem('pwa-prompt-declined');
+      if (!hasDeclined) {
+        setDeferredPrompt(e);
+        setIsOpen(true);
+      }
     };
 
     window.addEventListener('beforeinstallprompt', handler);
@@ -39,9 +43,14 @@ export function PWAInstallPrompt() {
     setIsOpen(false);
   };
 
+  const handleDecline = () => {
+    localStorage.setItem('pwa-prompt-declined', 'true');
+    setIsOpen(false);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[425px] mx-4 rounded-lg">
+      <DialogContent className="max-w-[90%] w-[320px] sm:max-w-[425px] rounded-lg">
         <DialogHeader>
           <DialogTitle>Install Our App</DialogTitle>
           <DialogDescription>
@@ -49,7 +58,7 @@ export function PWAInstallPrompt() {
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end space-x-4 mt-4">
-          <Button variant="outline" onClick={() => setIsOpen(false)}>
+          <Button variant="outline" onClick={handleDecline}>
             Maybe Later
           </Button>
           <Button onClick={handleInstall}>
