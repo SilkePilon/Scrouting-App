@@ -973,7 +973,7 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                                                                             <Button onClick={() => setEditingPost(post)} variant="outline" size="sm">
                                                                                 Bewerken
                                                                             </Button>
-                                                                            <Button onClick={() => deletePost(post.id)} variant="destructive" size="sm"></Button>
+                                                                            <Button onClick={() => deletePost(post.id)} variant="destructive" size="sm">
                                                                                 Verwijderen
                                                                             </Button>
                                                                         </div>
@@ -1560,7 +1560,7 @@ Het organisatieteam`
                                         <p>Nog geen loopgroepen toegevoegd.</p>
                                     ) : (
                                         walkingGroups.map((group) => (
-                                            <Card key={group.id} className="rounded-xl shadow-md"></Card>
+                                            <Card key={group.id} className="rounded-xl shadow-md">
                                                 <CardContent className="pt-6">
                                                     <div className="flex flex-col md:flex-row justify-between items-start gap-4">
                                                         <div className="space-y-4 flex-grow w-full">
@@ -1587,9 +1587,7 @@ Het organisatieteam`
                                                                         className="flex-grow"
                                                                     />
                                                                     <Button
-                                                                        onClick={() => {
-                                                                            addMemberToGroup(group.id, group.inputValue || '')
-                                                                        }}
+                                                                        onClick={() => addMemberToGroup(group.id, group.inputValue || '')}
                                                                         disabled={!group.inputValue?.trim()}
                                                                         size="sm"
                                                                     >
