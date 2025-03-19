@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { PlusCircle, LogOut, Clipboard, Users, MapPin, Trash2 } from "lucide-react"
+import { PlusCircle, LogOut, Clipboard, Users, MapPin, Trash2, User } from "lucide-react"
 import { useSupabase } from "@/lib/supabase-provider"
 import type { Database } from "@/lib/database.types"
 import Link from "next/link"
@@ -184,6 +184,12 @@ export default function Dashboard() {
             <h1 className="text-xl sm:text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
             <div className="flex items-center gap-2">
               <ThemeToggle />
+              <Link href="/account">
+                <Button variant="secondary" size="sm" className="rounded-full">
+                  <User className="h-4 w-4" />
+                  <span className="hidden sm:inline ml-2">Account</span>
+                </Button>
+              </Link>
               <Button variant="secondary" size="sm" onClick={handleSignOut} className="rounded-full">
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline ml-2">Uitloggen</span>
