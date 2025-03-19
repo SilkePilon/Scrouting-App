@@ -36,6 +36,7 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
     const [newGroupName, setNewGroupName] = useState("")
     const [editingPost, setEditingPost] = useState<Post | null>(null)
     const [availableVolunteers, setAvailableVolunteers] = useState<Volunteer[]>([])
+    const [allVolunteers, setAllVolunteers] = useState<Volunteer[]>([])
     const [selectedVolunteer, setSelectedVolunteer] = useState("")
     const [newVolunteerName, setNewVolunteerName] = useState("")
     const [volunteerCode, setVolunteerCode] = useState("")
@@ -136,6 +137,9 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
 
                 if (error) throw error
 
+                // Set all volunteers
+                setAllVolunteers(volunteersData || [])
+
                 // Get assigned volunteers
                 const { data: assignedVolunteers, error: assignedError } = await supabase
                     .from("post_volunteers")
@@ -144,7 +148,7 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
 
                 if (assignedError) throw assignedError
 
-                // Filter out volunteers that are already assigned to any post
+                // Filter out volunteers that are already assigned to any post for the available list
                 const assignedIds = new Set(assignedVolunteers?.map(v => v.volunteer_id) || [])
                 const availableVolunteers = volunteersData?.filter(v => !assignedIds.has(v.id)) || []
 
@@ -474,6 +478,15 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
     }
 
     const generateAccessCode = async () => {
+        if (!newVolunteerName.trim()) {
+            toast({
+                title: "Naam vereist",
+                description: "Voer een naam in voor de vrijwilliger",
+                variant: "destructive",
+            })
+            return
+        }
+
         try {
             // Generate a random 5-character code (uppercase letters and numbers)
             const code = Math.random().toString(36).substring(2, 7).toUpperCase();
@@ -484,8 +497,8 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                     event_id: eventId,
                     access_code: code,
                     created_at: new Date().toISOString(),
-                    used: false,  // Explicitly set to false
-                    volunteer_name: null // Initialize as null
+                    used: false,
+                    volunteer_name: newVolunteerName.trim()
                 })
                 .select()
                 .single()
@@ -494,14 +507,39 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
 
             // Add the new code to our list of generated codes
             setGeneratedCodes([...generatedCodes, { code }])
+            setNewVolunteerName("") // Reset the input
 
             toast({
                 title: "Toegangscode gegenereerd",
-                description: `Nieuwe code: ${code}`,
+                description: `Nieuwe code voor ${newVolunteerName}: ${code}`,
             })
         } catch (error: any) {
             toast({
                 title: "Fout bij genereren code",
+                description: error.message,
+                variant: "destructive",
+            })
+        }
+    }
+
+    const deleteAccessCode = async (code: string) => {
+        try {
+            const { error } = await supabase
+                .from("volunteer_codes")
+                .delete()
+                .eq("access_code", code)
+                .eq("event_id", eventId)
+
+            if (error) throw error
+
+            setGeneratedCodes(generatedCodes.filter(item => item.code !== code))
+            toast({
+                title: "Code verwijderd",
+                description: "De toegangscode is succesvol verwijderd.",
+            })
+        } catch (error: any) {
+            toast({
+                title: "Fout bij verwijderen",
                 description: error.message,
                 variant: "destructive",
             })
@@ -778,7 +816,17 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                                     <CardDescription>Genereer toegangscodes voor vrijwilligers</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <Button onClick={generateAccessCode} className="w-full">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="volunteerName">Naam Vrijwilliger</Label>
+                                        <Input
+                                            id="volunteerName"
+                                            placeholder="Naam van de vrijwilliger"
+                                            value={newVolunteerName}
+                                            onChange={(e) => setNewVolunteerName(e.target.value)}
+                                            className="rounded-lg"
+                                        />
+                                    </div>
+                                    <Button onClick={generateAccessCode} className="w-full" disabled={!newVolunteerName.trim()}>
                                         <Plus className="h-4 w-4 mr-2" />
                                         Nieuwe Toegangscode Genereren
                                     </Button>
@@ -790,13 +838,23 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                                                 {generatedCodes.map((item, index) => (
                                                     <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-lg">
                                                         <code className="text-sm font-mono">{item.code}</code>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => copyAccessCode(item.code)}
-                                                        >
-                                                            <Clipboard className="h-4 w-4" />
-                                                        </Button>
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => copyAccessCode(item.code)}
+                                                            >
+                                                                <Clipboard className="h-4 w-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => deleteAccessCode(item.code)}
+                                                                className="text-destructive hover:text-destructive"
+                                                            >
+                                                                ×
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -815,13 +873,18 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-2">
-                                        {availableVolunteers.length > 0 ? (
-                                            availableVolunteers.map(volunteer => (
-                                                <div key={volunteer.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                                                    <span>{volunteer.name}</span>
-                                                    <Badge variant="outline" className="ml-2">Actief</Badge>
-                                                </div>
-                                            ))
+                                        {allVolunteers.length > 0 ? (
+                                            allVolunteers.map(volunteer => {
+                                                const isAssigned = !availableVolunteers.some(v => v.id === volunteer.id)
+                                                return (
+                                                    <div key={volunteer.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                                                        <span>{volunteer.name}</span>
+                                                        <Badge variant={isAssigned ? "secondary" : "outline"} className="ml-2">
+                                                            {isAssigned ? "Toegewezen" : "Beschikbaar"}
+                                                        </Badge>
+                                                    </div>
+                                                )
+                                            })
                                         ) : (
                                             <p className="text-sm text-muted-foreground">Nog geen actieve vrijwilligers.</p>
                                         )}

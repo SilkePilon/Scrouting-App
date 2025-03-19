@@ -23,7 +23,6 @@ export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [accessCode, setAccessCode] = useState("")
-  const [volunteerName, setVolunteerName] = useState("")
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,7 +65,7 @@ export default function Login() {
       // 2. Find and validate the volunteer code
       const { data: codeData, error: codeError } = await supabase
         .from("volunteer_codes")
-        .select("id, event_id, access_code, used")
+        .select("id, event_id, access_code, used, created_at, volunteer_name")
         .eq("access_code", normalizedCode)
         .single()
 
@@ -76,6 +75,15 @@ export default function Login() {
 
       if (codeData.used) {
         throw new Error("Deze toegangscode is al gebruikt")
+      }
+
+      // Check if code is expired (1 hour)
+      const createdAt = new Date(codeData.created_at)
+      const now = new Date()
+      const hoursSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
+      
+      if (hoursSinceCreation > 1) {
+        throw new Error("Deze toegangscode is verlopen")
       }
 
       // 3. Get event details
@@ -94,7 +102,7 @@ export default function Login() {
       const { data: volunteerData, error: volunteerError } = await supabase
         .from("volunteers")
         .insert({
-          name: volunteerName,
+          name: codeData.volunteer_name,
           event_id: eventData.id,
           login_timestamp: new Date().toISOString(),
         })
@@ -108,8 +116,7 @@ export default function Login() {
         .from("volunteer_codes")
         .update({
           used: true,
-          used_at: new Date().toISOString(),
-          volunteer_name: volunteerName
+          used_at: new Date().toISOString()
         })
         .eq("id", codeData.id)
 
@@ -118,7 +125,7 @@ export default function Login() {
       // Store the volunteer session data in localStorage
       localStorage.setItem('volunteerSession', JSON.stringify({
         id: volunteerData.id,
-        name: volunteerName,
+        name: codeData.volunteer_name,
         event_id: eventData.id,
         event_name: eventData.name,
         timestamp: new Date().toISOString()
@@ -222,17 +229,6 @@ export default function Login() {
                       value={accessCode}
                       onChange={(e) => setAccessCode(e.target.value)}
                       maxLength={5}
-                      required
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="volunteerName">Jouw naam</Label>
-                    <Input
-                      id="volunteerName"
-                      placeholder="Naam"
-                      value={volunteerName}
-                      onChange={(e) => setVolunteerName(e.target.value)}
                       required
                       className="rounded-lg"
                     />

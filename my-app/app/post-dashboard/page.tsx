@@ -28,6 +28,18 @@ type VolunteerSession = {
   timestamp: string;
 }
 
+// Update the types to match the post_volunteers join
+type PostAssignment = {
+  post: {
+    id: string
+    name: string
+    location: string | null
+    event_id: string
+    description: string | null
+    order_number: number
+  }
+}
+
 export default function PostDashboard() {
   const router = useRouter()
   const supabase = createClientComponentClient<Database>()
@@ -76,27 +88,29 @@ export default function PostDashboard() {
         if (eventError) throw eventError
         setEvent(eventData)
 
-        // Try to find assigned post for this volunteer
-        const { data: volunteerData, error: volunteerError } = await supabase
-          .from("posts")
+        // Try to find assigned post for this volunteer through post_volunteers table
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from("post_volunteers")
           .select(`
-            id,
-            name,
-            location,
-            event_id,
-            description,
-            order_number
+            post:posts (
+              id,
+              name,
+              location,
+              event_id,
+              description,
+              order_number
+            )
           `)
-          .eq("event_id", session.event_id)
-          .limit(1)
-          .maybeSingle()
+          .eq("volunteer_id", session.id)
+          .single()
         
-        if (volunteerError && volunteerError.code !== "PGRST116") {
-          throw volunteerError
+        if (assignmentError && assignmentError.code !== "PGRST116") {
+          throw assignmentError
         }
         
-        if (volunteerData) {
-          setAssignedPost(volunteerData)
+        if (assignmentData) {
+          const assignedPost = (assignmentData as unknown as { post: Post }).post
+          setAssignedPost(assignedPost)
           
           // Get walking groups
           const { data: groupsData, error: groupsError } = await supabase
@@ -120,17 +134,11 @@ export default function PostDashboard() {
                 name
               )
             `)
-            .eq("post_id", volunteerData.id)
+            .eq("post_id", assignedPost.id)
             .order("checked_at", { ascending: false })
           
           if (checkpointsError) throw checkpointsError
           setCheckpoints(checkpointsData)
-        } else {
-          toast({
-            title: "Geen post toegewezen",
-            description: "Er is nog geen post beschikbaar. Vraag de organisator om een post toe te voegen.",
-            variant: "destructive",
-          })
         }
       } catch (error: any) {
         toast({
@@ -229,6 +237,7 @@ export default function PostDashboard() {
     )
   }
 
+  // Update the unassigned volunteer view
   if (!assignedPost) {
     return (
       <div className="min-h-screen bg-muted">
@@ -251,13 +260,19 @@ export default function PostDashboard() {
         <main className="container mx-auto px-4 py-8">
           <Card className="rounded-xl shadow-md">
             <CardHeader>
-              <CardTitle>Geen post beschikbaar</CardTitle>
+              <CardTitle>Wachten op toewijzing</CardTitle>
+              <CardDescription>Je bent nog niet toegewezen aan een post</CardDescription>
             </CardHeader>
-            <CardContent className="pt-6 text-center">
-              <p className="mb-4">
-                Er zijn nog geen posten aangemaakt voor dit evenement. Vraag de organisator om posten toe te voegen.
-              </p>
-              <Button onClick={handleSignOut} className="rounded-full">Uitloggen</Button>
+            <CardContent className="pt-6 space-y-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="font-medium text-lg">Ingelogd als: {volunteerSession?.name}</p>
+                <p className="text-muted-foreground">Evenement: {event?.name}</p>
+              </div>
+              <div className="bg-muted p-4 rounded-lg">
+                <p>De organisator moet je nog toewijzen aan een post. Zodra dit gebeurd is, kun je hier de post beheren.</p>
+                <p className="mt-2 text-muted-foreground">Neem contact op met de organisator als dit lang duurt.</p>
+              </div>
+              <Button onClick={handleSignOut} className="w-full mt-4">Uitloggen</Button>
             </CardContent>
           </Card>
         </main>
