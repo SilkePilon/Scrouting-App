@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -16,7 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Check, X, Eye, EyeOff, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export default function Login() {
+function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
@@ -467,6 +468,18 @@ export default function Login() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Laden...</p>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
 
