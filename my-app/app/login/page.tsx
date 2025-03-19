@@ -65,7 +65,7 @@ export default function Login() {
       // 2. Find and validate the volunteer code
       const { data: codeData, error: codeError } = await supabase
         .from("volunteer_codes")
-        .select("id, event_id, access_code, used, created_at, volunteer_name")
+        .select("id, event_id, access_code, used, expires_at, volunteer_name")
         .eq("access_code", normalizedCode)
         .single()
 
@@ -77,12 +77,10 @@ export default function Login() {
         throw new Error("Deze toegangscode is al gebruikt")
       }
 
-      // Check if code is expired (1 hour)
-      const createdAt = new Date(codeData.created_at)
+      // Check if code is expired using expires_at
+      const expiryDate = new Date(codeData.expires_at)
       const now = new Date()
-      const hoursSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60)
-      
-      if (hoursSinceCreation > 1) {
+      if (now > expiryDate) {
         throw new Error("Deze toegangscode is verlopen")
       }
 

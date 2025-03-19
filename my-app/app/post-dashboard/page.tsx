@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { LogOut, CheckCircle } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -52,6 +53,7 @@ export default function PostDashboard() {
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([])
   const [selectedGroup, setSelectedGroup] = useState<string>("")
   const [notes, setNotes] = useState<string>("")
+  const [posts, setPosts] = useState<Post[]>([])
 
   useEffect(() => {
     // Check for volunteer session in localStorage
@@ -112,6 +114,16 @@ export default function PostDashboard() {
           const assignedPost = (assignmentData as unknown as { post: Post }).post
           setAssignedPost(assignedPost)
           
+          // Get all posts for this event
+          const { data: postsData, error: postsError } = await supabase
+            .from("posts")
+            .select("*")
+            .eq("event_id", session.event_id)
+            .order("order_number", { ascending: true })
+          
+          if (postsError) throw postsError
+          setPosts(postsData)
+          
           // Get walking groups
           const { data: groupsData, error: groupsError } = await supabase
             .from("walking_groups")
@@ -122,7 +134,7 @@ export default function PostDashboard() {
           if (groupsError) throw groupsError
           setWalkingGroups(groupsData)
           
-          // Get checkpoints for this post
+          // Get all checkpoints for this event
           const { data: checkpointsData, error: checkpointsError } = await supabase
             .from("checkpoints")
             .select(`
@@ -139,6 +151,24 @@ export default function PostDashboard() {
           
           if (checkpointsError) throw checkpointsError
           setCheckpoints(checkpointsData)
+
+          // Get all checkpoints for all posts
+          const { data: allCheckpoints, error: allCheckpointsError } = await supabase
+            .from("checkpoints")
+            .select(`
+              *,
+              walking_group:walking_groups (
+                name
+              ),
+              post:posts (
+                name
+              )
+            `)
+            .in("post_id", postsData.map(post => post.id))
+            .order("checked_at", { ascending: false })
+          
+          if (allCheckpointsError) throw allCheckpointsError
+          setCheckpoints(allCheckpoints)
         }
       } catch (error: any) {
         toast({
@@ -216,6 +246,24 @@ export default function PostDashboard() {
       
       if (refreshError) throw refreshError
       setCheckpoints(refreshedData)
+      
+      // Get all checkpoints for all posts
+      const { data: allCheckpoints, error: allCheckpointsError } = await supabase
+        .from("checkpoints")
+        .select(`
+          *,
+          walking_group:walking_groups (
+            name
+          ),
+          post:posts (
+            name
+          )
+        `)
+        .in("post_id", posts.map(post => post.id))
+        .order("checked_at", { ascending: false })
+      
+      if (allCheckpointsError) throw allCheckpointsError
+      setCheckpoints(allCheckpoints)
       
       // Reset form
       setSelectedGroup("")
@@ -308,7 +356,83 @@ export default function PostDashboard() {
             {volunteerSession && <p className="text-sm text-muted-foreground mt-2">Ingelogd als: {volunteerSession.name}</p>}
           </div>
         </div>
-        
+
+        <Card className="mb-8 rounded-xl shadow-md">
+          <CardHeader>
+            <CardTitle>Voortgang van Loopgroepen</CardTitle>
+            <CardDescription>Overzicht van alle gepasseerde posten per loopgroep</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+              <div className="inline-block min-w-full align-middle">
+                <div className="overflow-hidden md:rounded-lg">
+                  <table className="min-w-full divide-y divide-border">
+                    <thead>
+                      <tr>
+                        <th className="text-left p-2 border-b bg-muted">
+                          <div className="flex items-center justify-between">
+                            <span>Loopgroep</span>
+                            <span className="md:hidden text-xs text-muted-foreground">Scroll →</span>
+                          </div>
+                        </th>
+                        {posts.map((post, index) => (
+                          <th key={post.id} className="text-center p-2 border-b bg-muted whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <span>Post {index + 1}</span>
+                              <span className="text-xs font-normal">{post.name}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {walkingGroups.map((group) => {
+                        const groupCheckpoints = checkpoints.filter(
+                          (cp) => cp.walking_group_id === group.id
+                        );
+
+                        return (
+                          <tr key={group.id}>
+                            <td className="p-2 border-b font-medium">{group.name}</td>
+                            {posts.map((post) => {
+                              const checkpoint = groupCheckpoints.find(
+                                (cp) => cp.post_id === post.id
+                              );
+
+                              return (
+                                <td key={post.id} className="text-center p-2 border-b">
+                                  {checkpoint ? (
+                                    <div className="flex flex-col items-center">
+                                      <Badge variant="default" className={post.id === assignedPost.id ? "bg-green-500" : "bg-muted"}>
+                                        ✓
+                                      </Badge>
+                                      <span className="text-xs mt-1">
+                                        {new Date(checkpoint.checked_at).toLocaleTimeString(
+                                          "nl-NL",
+                                          {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          }
+                                        )}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="h-8" />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="rounded-xl shadow-md">
             <CardHeader>
