@@ -50,7 +50,7 @@ export function PWAInstallPrompt() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-[90%] w-[320px] sm:max-w-[425px] rounded-lg">
+      <DialogContent className="w-[320px] sm:w-auto rounded-lg">
         <DialogHeader>
           <DialogTitle>Install Our App</DialogTitle>
           <DialogDescription>
