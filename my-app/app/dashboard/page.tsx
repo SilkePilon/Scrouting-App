@@ -147,26 +147,26 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-muted">
-      <header className="bg-primary py-4 rounded-b-xl">
-        <div className="container mx-auto px-4">
+      <header className="bg-primary py-3 sm:py-4 rounded-b-xl">
+        <div className="container mx-auto px-3 sm:px-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
-            <div className="flex items-center space-x-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
+            <div className="flex items-center gap-2">
               <ThemeToggle />
               <Button variant="secondary" size="sm" onClick={handleSignOut} className="rounded-full">
-                <LogOut className="h-4 w-4 mr-2" />
-                Uitloggen
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline ml-2">Uitloggen</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-3xl font-bold">Mijn Wandeltochten</h2>
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-6 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold">Mijn Wandeltochten</h2>
           <Link href="/dashboard/create-event">
-            <Button className="rounded-full">
+            <Button className="w-full sm:w-auto rounded-full">
               <PlusCircle className="h-4 w-4 mr-2" />
               Nieuwe Wandeltocht
             </Button>
@@ -174,7 +174,7 @@ export default function Dashboard() {
         </div>
 
         {events.length === 0 ? (
-          <Card>
+          <Card className="mx-auto max-w-md">
             <CardContent className="pt-6 text-center">
               <p className="mb-4">Je hebt nog geen wandeltochten aangemaakt.</p>
               <Link href="/dashboard/create-event">
@@ -186,23 +186,27 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => (
               <Card key={event.id} className="rounded-xl shadow-md hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <CardTitle>{event.name}</CardTitle>
+                <CardHeader className="space-y-2">
+                  <CardTitle className="text-lg sm:text-xl line-clamp-1">{event.name}</CardTitle>
                   <CardDescription>
-                    <div className="flex items-center gap-2">
-                      <span>Datum: {new Date(event.date).toLocaleDateString("nl-NL")}</span>
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${event.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm">
+                        {new Date(event.date).toLocaleDateString("nl-NL")}
+                      </span>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${
+                        event.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
                         {event.is_active ? 'Actief' : 'Inactief'}
                       </span>
                     </div>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-4">
                       <div className="text-center">
                         <div className="flex items-center justify-center mb-1">
                           <MapPin className="h-4 w-4 mr-1" />
@@ -225,7 +229,7 @@ export default function Dashboard() {
                         <p className="text-xs text-muted-foreground">Codes</p>
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
+                    <p className="text-sm text-muted-foreground line-clamp-2 break-words">
                       {event.description || "Geen beschrijving"}
                     </p>
                   </div>
