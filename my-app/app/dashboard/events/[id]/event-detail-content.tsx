@@ -6,7 +6,6 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Clipboard, Plus, Users, Share2, Trash2, MapPin, Clock } from "lucide-react"
 import { useSupabase } from "@/lib/supabase-provider"
@@ -16,6 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
+import { PostgrestError } from '@supabase/supabase-js'
 
 type Event = Database["public"]["Tables"]["events"]["Row"]
 type Post = Database["public"]["Tables"]["posts"]["Row"] & {
@@ -47,8 +48,8 @@ interface TabInfo {
 
 function MobileTabCard({ info, children }: { info: TabInfo; children: React.ReactNode }) {
     return (
-        <Sheet>
-            <SheetTrigger asChild>
+        <Drawer>
+            <DrawerTrigger asChild>
                 <Card className="cursor-pointer hover:shadow-lg transition-all duration-200">
                     <CardHeader>
                         <div className="flex items-center gap-4">
@@ -72,17 +73,19 @@ function MobileTabCard({ info, children }: { info: TabInfo; children: React.Reac
                         )}
                     </CardHeader>
                 </Card>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] w-full">
-                <SheetHeader>
-                    <SheetTitle>{info.title}</SheetTitle>
-                    <SheetDescription>{info.description}</SheetDescription>
-                </SheetHeader>
-                <div className="mt-6 overflow-y-auto pb-20">
-                    {children}
+            </DrawerTrigger>
+            <DrawerContent>
+                <div className="mx-auto w-full max-w-lg">
+                    <DrawerHeader>
+                        <DrawerTitle>{info.title}</DrawerTitle>
+                        <DrawerDescription>{info.description}</DrawerDescription>
+                    </DrawerHeader>
+                    <div className="p-4 overflow-y-auto pb-20">
+                        {children}
+                    </div>
                 </div>
-            </SheetContent>
-        </Sheet>
+            </DrawerContent>
+        </Drawer>
     );
 }
 
@@ -131,10 +134,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
             const availableVolunteers = volunteersData?.filter(v => !assignedIds.has(v.id)) || []
 
             setAvailableVolunteers(availableVolunteers)
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij ophalen vrijwilligers",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -229,10 +233,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                     .order("checked_at", { ascending: false })
                 if (checkpointsError) throw checkpointsError
                 setCheckpoints(checkpointsData)
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
                 toast({
                     title: "Fout bij ophalen gegevens",
-                    description: error.message,
+                    description: message,
                     variant: "destructive",
                 })
             } finally {
@@ -292,10 +297,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                         .delete()
                         .in('id', expiredCodes.map(c => c.id))
                 }
-            } catch (error: any) {
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
                 toast({
                     title: "Fout bij ophalen toegangscodes",
-                    description: error.message,
+                    description: message,
                     variant: "destructive",
                 })
             }
@@ -325,10 +331,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Post verwijderd",
                 description: "De post is succesvol verwijderd.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij verwijderen",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -349,10 +356,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Post bijgewerkt",
                 description: "De post is succesvol bijgewerkt.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij bijwerken",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -395,10 +403,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
             })
 
             setAvailableVolunteers(availableVolunteers.filter(v => v.id !== volunteerId))
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij toewijzen",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -442,10 +451,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Vrijwilliger verwijderd",
                 description: "De vrijwilliger is succesvol verwijderd van de post.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij verwijderen",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -458,7 +468,7 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
         const maxOrder = posts.length > 0 ? Math.max(...posts.map((p) => p.order_number)) : 0
 
         try {
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from("posts")
                 .insert({
                     event_id: event.id,
@@ -486,10 +496,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
             setPosts(refreshedPosts)
             setNewPostName("")
             setNewPostLocation("")
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij toevoegen post",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -525,10 +536,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
 
             setWalkingGroups(refreshedGroups)
             setNewGroupName("")
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij toevoegen loopgroep",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -550,10 +562,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Loopgroep verwijderd",
                 description: "De loopgroep is succesvol verwijderd.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij verwijderen",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -573,10 +586,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Checkpoint verwijderd",
                 description: "Het checkpoint is succesvol verwijderd.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij verwijderen",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -647,10 +661,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Toegangscode gegenereerd",
                 description: `Nieuwe code voor ${newVolunteerName}: ${code}`,
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij genereren code",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -715,10 +730,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Code verwijderd",
                 description: "De toegangscode en bijbehorende vrijwilliger zijn succesvol verwijderd.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij verwijderen",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -761,10 +777,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Lid toegevoegd",
                 description: "Het nieuwe lid is succesvol toegevoegd aan de groep.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij toevoegen lid",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
@@ -792,10 +809,11 @@ export function EventDetailContent({ eventId }: { eventId: string }) {
                 title: "Lid verwijderd",
                 description: "Het lid is succesvol verwijderd uit de groep.",
             })
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Er is een fout opgetreden'
             toast({
                 title: "Fout bij verwijderen lid",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             })
         }
