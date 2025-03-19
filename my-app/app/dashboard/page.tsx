@@ -279,7 +279,7 @@ export default function Dashboard() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="w-[90%] max-w-md mx-auto rounded-xl">
                       <DialogHeader>
                         <DialogTitle>Evenement verwijderen</DialogTitle>
                         <DialogDescription>
