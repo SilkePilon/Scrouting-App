@@ -52,17 +52,17 @@ export function PWAInstallPrompt() {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="w-[320px] sm:w-auto rounded-lg">
         <DialogHeader>
-          <DialogTitle>Install Our App</DialogTitle>
+          <DialogTitle>Installeer Onze App</DialogTitle>
           <DialogDescription>
-            Install our app on your phone for a better experience and quick access!
+            Installeer onze app op je telefoon voor een betere ervaring en snelle toegang!
           </DialogDescription>
         </DialogHeader>
         <div className="flex justify-end space-x-4 mt-4">
           <Button variant="outline" onClick={handleDecline}>
-            Maybe Later
+            Misschien Later
           </Button>
           <Button onClick={handleInstall}>
-            Install Now
+            Nu Installeren
           </Button>
         </div>
       </DialogContent>
