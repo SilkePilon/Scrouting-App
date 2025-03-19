@@ -173,6 +173,35 @@ export interface Database {
           last_activity?: string | null
         }
       }
+      volunteer_codes: {
+        Row: {
+          id: string
+          event_id: string
+          volunteer_name: string
+          access_code: string
+          created_at: string
+          used: boolean
+          used_at: string | null
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          volunteer_name: string
+          access_code: string
+          created_at?: string
+          used?: boolean
+          used_at?: string | null
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          volunteer_name?: string
+          access_code?: string
+          created_at?: string
+          used?: boolean
+          used_at?: string | null
+        }
+      }
     }
   }
 }

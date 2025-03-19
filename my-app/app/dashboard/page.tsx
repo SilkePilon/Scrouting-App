@@ -1,46 +1,103 @@
 "use client"
-
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { PlusCircle, LogOut, Clipboard } from "lucide-react"
+import { PlusCircle, LogOut, Clipboard, Users, MapPin } from "lucide-react"
 import { useSupabase } from "@/lib/supabase-provider"
 import type { Database } from "@/lib/database.types"
 import Link from "next/link"
-// Add the import for ThemeToggle
 import { ThemeToggle } from "@/components/theme-toggle"
 
 type Event = Database["public"]["Tables"]["events"]["Row"]
+type Post = Database["public"]["Tables"]["posts"]["Row"]
+type VolunteerCode = Database["public"]["Tables"]["volunteer_codes"]["Row"]
+type WalkingGroup = Database["public"]["Tables"]["walking_groups"]["Row"]
+
+interface EventWithDetails extends Event {
+  posts: Post[]
+  volunteerCodes: VolunteerCode[]
+  walkingGroups: WalkingGroup[]
+}
 
 export default function Dashboard() {
   const router = useRouter()
-  const { supabase, user, loading } = useSupabase()
+  const { supabase, user, loading: authLoading } = useSupabase()
   const { toast } = useToast()
-  const [events, setEvents] = useState<Event[]>([])
+  const [events, setEvents] = useState<EventWithDetails[]>([])
   const [loadingEvents, setLoadingEvents] = useState(true)
 
+  // Check authentication status
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push("/login")
+      return
     }
-  }, [user, loading, router])
+  }, [user, authLoading, router])
 
+  // Fetch event data
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchEventDetails = async () => {
       if (!user) return
-
+      
       try {
-        const { data, error } = await supabase
+        setLoadingEvents(true)
+        console.log("Fetching events for user:", user.id) // Debug log
+
+        // Fetch events
+        const { data: eventsData, error: eventsError } = await supabase
           .from("events")
           .select("*")
           .eq("creator_id", user.id)
           .order("date", { ascending: false })
 
-        if (error) throw error
-        setEvents(data || [])
+        if (eventsError) {
+          console.error("Error fetching events:", eventsError) // Debug log
+          throw eventsError
+        }
+
+        console.log("Found events:", eventsData?.length) // Debug log
+
+        const eventsWithDetails: EventWithDetails[] = []
+
+        // Fetch details for each event
+        for (const event of eventsData || []) {
+          console.log("Fetching details for event:", event.id) // Debug log
+
+          const [postsResult, codesResult, groupsResult] = await Promise.all([
+            supabase
+              .from("posts")
+              .select("*")
+              .eq("event_id", event.id)
+              .order("order_number", { ascending: true }),
+            supabase
+              .from("volunteer_codes")
+              .select("*")
+              .eq("event_id", event.id),
+            supabase
+              .from("walking_groups")
+              .select("*")
+              .eq("event_id", event.id)
+              .order("name", { ascending: true }),
+          ])
+
+          if (postsResult.error) console.error("Error fetching posts:", postsResult.error)
+          if (codesResult.error) console.error("Error fetching codes:", codesResult.error)
+          if (groupsResult.error) console.error("Error fetching groups:", groupsResult.error)
+
+          eventsWithDetails.push({
+            ...event,
+            posts: postsResult.data || [],
+            volunteerCodes: codesResult.data || [],
+            walkingGroups: groupsResult.data || [],
+          })
+        }
+
+        console.log("Setting events with details:", eventsWithDetails.length) // Debug log
+        setEvents(eventsWithDetails)
       } catch (error: any) {
+        console.error("Error in fetchEventDetails:", error) // Debug log
         toast({
           title: "Fout bij ophalen evenementen",
           description: error.message,
@@ -52,7 +109,7 @@ export default function Dashboard() {
     }
 
     if (user) {
-      fetchEvents()
+      fetchEventDetails()
     }
   }, [supabase, user, toast])
 
@@ -62,25 +119,34 @@ export default function Dashboard() {
     router.refresh()
   }
 
-  const copyAccessCode = (code: string) => {
-    navigator.clipboard.writeText(code)
-    toast({
-      title: "Toegangscode gekopieerd",
-      description: "De code is naar je klembord gekopieerd.",
-    })
-  }
-
-  if (loading || !user) {
+  // Show loading state while checking auth
+  if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p>Laden...</p>
+        <p>Authenticatie controleren...</p>
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Redirecting...</p>
+      </div>
+    )
+  }
+
+  if (loadingEvents) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p>Evenementen laden...</p>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-muted">
-      {/* Update the header section to include the ThemeToggle */}
       <header className="bg-primary py-4 rounded-b-xl">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
@@ -107,9 +173,7 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {loadingEvents ? (
-          <p>Evenementen laden...</p>
-        ) : events.length === 0 ? (
+        {events.length === 0 ? (
           <Card>
             <CardContent className="pt-6 text-center">
               <p className="mb-4">Je hebt nog geen wandeltochten aangemaakt.</p>
@@ -124,27 +188,47 @@ export default function Dashboard() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {events.map((event) => (
-              // Update the cards to have more rounded corners
               <Card key={event.id} className="rounded-xl shadow-md hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <CardTitle>{event.name}</CardTitle>
-                  <CardDescription>Datum: {new Date(event.date).toLocaleDateString("nl-NL")}</CardDescription>
+                  <CardDescription>
+                    <div className="flex items-center gap-2">
+                      <span>Datum: {new Date(event.date).toLocaleDateString("nl-NL")}</span>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${event.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {event.is_active ? 'Actief' : 'Inactief'}
+                      </span>
+                    </div>
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm">
-                      <span className="font-semibold">Toegangscode:</span>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <MapPin className="h-4 w-4 mr-1" />
+                          <span className="font-semibold">{event.posts.length}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Posten</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <Users className="h-4 w-4 mr-1" />
+                          <span className="font-semibold">{event.walkingGroups.length}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Groepen</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="flex items-center justify-center mb-1">
+                          <Clipboard className="h-4 w-4 mr-1" />
+                          <span className="font-semibold">{event.volunteerCodes.length}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Codes</p>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <code className="bg-muted p-1 rounded">{event.access_code}</code>
-                      <Button variant="ghost" size="sm" onClick={() => copyAccessCode(event.access_code)}>
-                        <Clipboard className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {event.description || "Geen beschrijving"}
+                    </p>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {event.description || "Geen beschrijving"}
-                  </p>
                 </CardContent>
                 <CardFooter>
                   <Link href={`/dashboard/events/${event.id}`} className="w-full">

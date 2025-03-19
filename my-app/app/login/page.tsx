@@ -60,17 +60,37 @@ export default function Login() {
     setLoading(true)
 
     try {
-      // 1. Check if the access code exists and get event data
+      // 1. Convert access code to uppercase for consistency
+      const normalizedCode = accessCode.toUpperCase()
+
+      // 2. Find and validate the volunteer code
+      const { data: codeData, error: codeError } = await supabase
+        .from("volunteer_codes")
+        .select("id, event_id, access_code, used")
+        .eq("access_code", normalizedCode)
+        .single()
+
+      if (codeError || !codeData) {
+        throw new Error("Ongeldige toegangscode")
+      }
+
+      if (codeData.used) {
+        throw new Error("Deze toegangscode is al gebruikt")
+      }
+
+      // 3. Get event details
       const { data: eventData, error: eventError } = await supabase
         .from("events")
         .select("id, name")
-        .eq("access_code", accessCode)
+        .eq("id", codeData.event_id)
         .eq("is_active", true)
         .single()
 
-      if (eventError) throw new Error("Ongeldige toegangscode")
+      if (eventError || !eventData) {
+        throw new Error("Evenement niet gevonden of niet meer actief")
+      }
 
-      // 2. Create a volunteer entry directly in a custom volunteers table
+      // 4. Create a volunteer entry
       const { data: volunteerData, error: volunteerError } = await supabase
         .from("volunteers")
         .insert({
@@ -82,6 +102,18 @@ export default function Login() {
         .single()
 
       if (volunteerError) throw volunteerError
+
+      // 5. Mark the volunteer code as used
+      const { error: updateError } = await supabase
+        .from("volunteer_codes")
+        .update({
+          used: true,
+          used_at: new Date().toISOString(),
+          volunteer_name: volunteerName
+        })
+        .eq("id", codeData.id)
+
+      if (updateError) throw updateError
 
       // Store the volunteer session data in localStorage
       localStorage.setItem('volunteerSession', JSON.stringify({
