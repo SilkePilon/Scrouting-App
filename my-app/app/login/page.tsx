@@ -3,7 +3,7 @@
 import { Suspense } from "react"
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Button } from "@/components/ui/button"
@@ -13,45 +13,26 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { Badge } from "@/components/ui/badge"
-import { Check, X, Eye, EyeOff, AlertCircle } from "lucide-react"
-import { cn } from "@/lib/utils"
 
 function LoginContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
   const supabase = createClientComponentClient()
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [name, setName] = useState("")
   const [accessCode, setAccessCode] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const isSetup = searchParams.get("setup") === "true"
-
-  const passwordRequirements = [
-    { label: "Minimaal 8 tekens", test: (p: string) => p.length >= 8 },
-    { label: "Minimaal 1 hoofdletter", test: (p: string) => /[A-Z]/.test(p) },
-    { label: "Minimaal 1 kleine letter", test: (p: string) => /[a-z]/.test(p) },
-    { label: "Minimaal 1 cijfer", test: (p: string) => /[0-9]/.test(p) },
-    { label: "Minimaal 1 speciaal teken", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
-  ]
-
-  const passwordStrength = passwordRequirements.filter(req => req.test(password)).length
 
   // Check if user is already authenticated
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (session && !isSetup) {
+      if (session) {
         router.push("/dashboard")
       }
     }
     checkSession()
-  }, [supabase, router, isSetup])
+  }, [supabase, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,69 +56,6 @@ function LoginContent() {
     } catch (error: any) {
       toast({
         title: "Inloggen mislukt",
-        description: error.message,
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handlePasswordSetup = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Wachtwoorden komen niet overeen",
-        description: "Controleer of je wachtwoorden hetzelfde zijn",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (passwordStrength < passwordRequirements.length) {
-      toast({
-        title: "Wachtwoord niet sterk genoeg",
-        description: "Zorg dat je wachtwoord aan alle vereisten voldoet",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      // Get the current user's session
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) throw new Error("Geen actieve sessie gevonden")
-
-      // Update the password
-      const { error: updateError } = await supabase.auth.updateUser({ password })
-      if (updateError) throw updateError
-
-      // Create entry in custom users table
-      const { error: userError } = await supabase
-        .from("users")
-        .insert({
-          id: session.user.id,
-          email: session.user.email,
-          name: name,
-          is_admin: true,  // First user is admin/organizer
-        })
-        .single()
-
-      if (userError) throw userError
-
-      toast({
-        title: "Account aangemaakt!",
-        description: "Je wordt nu ingelogd.",
-      })
-
-      router.push("/dashboard")
-      router.refresh()
-    } catch (error: any) {
-      toast({
-        title: "Wachtwoord instellen mislukt",
         description: error.message,
         variant: "destructive",
       })
@@ -255,216 +173,84 @@ function LoginContent() {
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md rounded-xl shadow-lg overflow-hidden">
           <CardHeader>
-            <CardTitle className="text-2xl">{isSetup ? "Account instellen" : "Inloggen"}</CardTitle>
+            <CardTitle className="text-2xl">Inloggen</CardTitle>
             <CardDescription>
-              {isSetup 
-                ? "Stel je account gegevens in" 
-                : "Log in bij je account of gebruik een toegangscode"}
+              Log in bij je account of gebruik een toegangscode
             </CardDescription>
           </CardHeader>
-          {isSetup ? (
-            <form onSubmit={handlePasswordSetup}>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Naam</Label>
-                  <Input
-                    id="name"
-                    placeholder="Jouw naam"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="rounded-lg"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Wachtwoord</Label>
-                  <div className="relative">
+          <Tabs defaultValue="organizer">
+            <TabsList className="grid w-full grid-cols-2 rounded-lg">
+              <TabsTrigger value="organizer" className="rounded-l-lg">
+                Organisator
+              </TabsTrigger>
+              <TabsTrigger value="volunteer" className="rounded-r-lg">
+                Postbemanning
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="organizer">
+              <form onSubmit={handleLogin}>
+                <CardContent className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="jouw@email.nl"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="rounded-lg"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Wachtwoord</Label>
                     <Input
                       id="password"
-                      type={showPassword ? "text" : "password"}
+                      type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="rounded-lg pr-10"
+                      className="rounded-lg"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Bevestig wachtwoord</Label>
-                  <div className="relative">
-                    <Input
-                      id="confirmPassword"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      className={cn(
-                        "rounded-lg pr-10",
-                        confirmPassword && (
-                          confirmPassword === password 
-                            ? "border-green-500" 
-                            : "border-red-500"
-                        )
-                      )}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                    {confirmPassword && (
-                      <div className="absolute right-10 top-1/2 -translate-y-1/2">
-                        {confirmPassword === password ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <X className="h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                    )}
+                </CardContent>
+                <CardFooter className="flex flex-col space-y-2">
+                  <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                    {loading ? "Bezig met inloggen..." : "Inloggen"}
+                  </Button>
+                  <div className="text-center text-sm">
+                    Nog geen account?{" "}
+                    <Link href="/register" className="text-primary hover:underline">
+                      Registreren
+                    </Link>
                   </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Wachtwoord sterkte:</span>
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((strength) => (
-                        <div
-                          key={strength}
-                          className={cn(
-                            "h-2 w-6 rounded-full",
-                            strength <= passwordStrength
-                              ? strength <= 2
-                                ? "bg-red-500"
-                                : strength <= 4
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                              : "bg-muted"
-                          )}
-                        />
-                      ))}
-                    </div>
-                  </div>
+                </CardFooter>
+              </form>
+            </TabsContent>
+            <TabsContent value="volunteer">
+              <form onSubmit={handleVolunteerLogin}>
+                <CardContent className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    {passwordRequirements.map((req, index) => (
-                      <div 
-                        key={index} 
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <div className="transition-transform duration-300 origin-center">
-                          {req.test(password) ? (
-                            <Check className="h-4 w-4 text-green-500 animate-[scale_0.2s_ease-in-out]" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4 text-muted-foreground animate-[scale_0.2s_ease-in-out]" />
-                          )}
-                        </div>
-                        <span className={cn(
-                          "transition-colors duration-300",
-                          req.test(password) ? "text-green-500" : "text-muted-foreground"
-                        )}>
-                          {req.label}
-                        </span>
-                      </div>
-                    ))}
+                    <Label htmlFor="accessCode">Toegangscode</Label>
+                    <Input
+                      id="accessCode"
+                      placeholder="12345"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value)}
+                      maxLength={5}
+                      required
+                      className="rounded-lg"
+                    />
                   </div>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  type="submit" 
-                  className="w-full rounded-full" 
-                  disabled={loading || passwordStrength < passwordRequirements.length || password !== confirmPassword}
-                >
-                  {loading ? "Bezig..." : "Account instellen en inloggen"}
-                </Button>
-              </CardFooter>
-            </form>
-          ) : (
-            <Tabs defaultValue="organizer">
-              <TabsList className="grid w-full grid-cols-2 rounded-lg">
-                <TabsTrigger value="organizer" className="rounded-l-lg">
-                  Organisator
-                </TabsTrigger>
-                <TabsTrigger value="volunteer" className="rounded-r-lg">
-                  Postbemanning
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="organizer">
-                <form onSubmit={handleLogin}>
-                  <CardContent className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">E-mail</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="jouw@email.nl"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                        className="rounded-lg"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Wachtwoord</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
-                        className="rounded-lg"
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex flex-col space-y-2">
-                    <Button type="submit" className="w-full rounded-full" disabled={loading}>
-                      {loading ? "Bezig met inloggen..." : "Inloggen"}
-                    </Button>
-                    <div className="text-center text-sm">
-                      Nog geen account?{" "}
-                      <Link href="/register" className="text-primary hover:underline">
-                        Registreren
-                      </Link>
-                    </div>
-                  </CardFooter>
-                </form>
-              </TabsContent>
-              <TabsContent value="volunteer">
-                <form onSubmit={handleVolunteerLogin}>
-                  <CardContent className="space-y-4 pt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="accessCode">Toegangscode</Label>
-                      <Input
-                        id="accessCode"
-                        placeholder="12345"
-                        value={accessCode}
-                        onChange={(e) => setAccessCode(e.target.value)}
-                        maxLength={5}
-                        required
-                        className="rounded-lg"
-                      />
-                    </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button type="submit" className="w-full rounded-full" disabled={loading}>
-                      {loading ? "Bezig met inloggen..." : "Deelnemen aan evenement"}
-                    </Button>
-                  </CardFooter>
-                </form>
-              </TabsContent>
-            </Tabs>
-          )}
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                    {loading ? "Bezig met inloggen..." : "Deelnemen aan evenement"}
+                  </Button>
+                </CardFooter>
+              </form>
+            </TabsContent>
+          </Tabs>
         </Card>
       </div>
     </div>

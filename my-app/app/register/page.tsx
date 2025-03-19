@@ -29,7 +29,7 @@ export default function Register() {
       const { data: authData, error: authError } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/login?setup=true`,
+          emailRedirectTo: `${window.location.origin}/setup`,
         },
       })
 
