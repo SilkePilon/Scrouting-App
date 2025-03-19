@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#4338CA"/>
+  
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="220" stroke="white" stroke-width="12" fill="none"/>
+  
+  <!-- Compass needle -->
+  <g transform="translate(256 256)">
+    <!-- North pointer (red) -->
+    <path d="M0 -160 L40 0 L-40 0 Z" fill="#EF4444"/>
+    <!-- South pointer (white) -->
+    <path d="M0 160 L-40 0 L40 0 Z" fill="white"/>
+  </g>
+  
+  <!-- Center dot -->
+  <circle cx="256" cy="256" r="20" fill="white"/>
+  
+  <!-- Cardinal points -->
+  <text x="256" y="80" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="48">N</text>
+  <text x="256" y="460" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="48">S</text>
+  <text x="460" y="272" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="48">O</text>
+  <text x="52" y="272" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="48">W</text>
+</svg>
