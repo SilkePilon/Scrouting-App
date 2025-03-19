@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { SupabaseProvider } from "@/lib/supabase-provider"
+import { PWAInstallPrompt } from "@/components/PWAInstallPrompt"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -42,6 +43,7 @@ export default function RootLayout({
           <SupabaseProvider>
             {children}
             <Toaster />
+            <PWAInstallPrompt />
           </SupabaseProvider>
         </ThemeProvider>
       </body>
