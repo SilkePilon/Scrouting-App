@@ -14,20 +14,16 @@ export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
-    const handler = (e: Event) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      // Check if user previously clicked "Maybe Later"
-      const hasDeclined = localStorage.getItem('pwa-prompt-declined');
-      if (!hasDeclined) {
-        setDeferredPrompt(e);
-        setIsOpen(true);
-      }
+      setDeferredPrompt(e);
+      setIsOpen(true);
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
   }, []);
 
@@ -44,13 +40,12 @@ export function PWAInstallPrompt() {
   };
 
   const handleDecline = () => {
-    localStorage.setItem('pwa-prompt-declined', 'true');
     setIsOpen(false);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="w-[320px] sm:w-auto rounded-lg">
+      <DialogContent className="w-[90%] max-w-md mx-auto rounded-xl">
         <DialogHeader>
           <DialogTitle>Installeer Onze App</DialogTitle>
           <DialogDescription>
