@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +14,38 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { ThemeToggle } from "@/components/theme-toggle"
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { 
+    opacity: 1,
+    transition: { 
+      when: "beforeChildren",
+      staggerChildren: 0.1,
+      duration: 0.5
+    } 
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { 
+      type: "spring", 
+      stiffness: 300, 
+      damping: 24 
+    } 
+  }
+}
+
+const buttonVariants = {
+  idle: { scale: 1 },
+  hover: { scale: 1.03 },
+  tap: { scale: 0.97 }
+}
 
 function LoginContent() {
   const router = useRouter()
@@ -22,6 +55,7 @@ function LoginContent() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [accessCode, setAccessCode] = useState("")
+  const [activeTab, setActiveTab] = useState("organizer")
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -158,102 +192,186 @@ function LoginContent() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-muted">
-      <header className="bg-primary py-4 rounded-b-xl">
+    <motion.div 
+      className="flex min-h-screen flex-col bg-muted"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.header 
+        className="bg-primary py-4 rounded-b-xl"
+        initial={{ y: -50 }}
+        animate={{ y: 0 }}
+        transition={{ 
+          type: "spring",
+          stiffness: 300,
+          damping: 30
+        }}
+      >
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <Link href="/">
-              <h1 className="text-2xl font-bold text-primary-foreground">ScoutingHike</h1>
+              <motion.h1 
+                className="text-2xl font-bold text-primary-foreground"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ScoutingHike
+              </motion.h1>
             </Link>
             <ThemeToggle />
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <div className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md rounded-xl shadow-lg overflow-hidden">
-          <CardHeader>
-            <CardTitle className="text-2xl">Inloggen</CardTitle>
-            <CardDescription>
-              Log in bij je account of gebruik een toegangscode
-            </CardDescription>
-          </CardHeader>
-          <Tabs defaultValue="organizer">
-            <TabsList className="grid w-full grid-cols-2 rounded-lg">
-              <TabsTrigger value="organizer" className="rounded-l-lg">
-                Organisator
-              </TabsTrigger>
-              <TabsTrigger value="volunteer" className="rounded-r-lg">
-                Postbemanning
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="organizer">
-              <form onSubmit={handleLogin}>
-                <CardContent className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="jouw@email.nl"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="rounded-lg"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Wachtwoord</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="rounded-lg"
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter className="flex flex-col space-y-2">
-                  <Button type="submit" className="w-full rounded-full" disabled={loading}>
-                    {loading ? "Bezig met inloggen..." : "Inloggen"}
-                  </Button>
-                  <div className="text-center text-sm">
-                    Nog geen account?{" "}
-                    <Link href="/register" className="text-primary hover:underline">
-                      Registreren
-                    </Link>
-                  </div>
-                </CardFooter>
-              </form>
-            </TabsContent>
-            <TabsContent value="volunteer">
-              <form onSubmit={handleVolunteerLogin}>
-                <CardContent className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="accessCode">Toegangscode</Label>
-                    <Input
-                      id="accessCode"
-                      placeholder="12345"
-                      value={accessCode}
-                      onChange={(e) => setAccessCode(e.target.value)}
-                      maxLength={5}
-                      required
-                      className="rounded-lg"
-                    />
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button type="submit" className="w-full rounded-full" disabled={loading}>
-                    {loading ? "Bezig met inloggen..." : "Deelnemen aan evenement"}
-                  </Button>
-                </CardFooter>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            type: "spring",
+            stiffness: 200,
+            damping: 20,
+            delay: 0.2
+          }}
+          className="w-full max-w-md"
+        >
+          <Card className="rounded-xl shadow-lg overflow-hidden">
+            <CardHeader>
+              <motion.div variants={containerVariants} initial="hidden" animate="visible">
+                <motion.div variants={itemVariants}>
+                  <CardTitle className="text-2xl">Inloggen</CardTitle>
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <CardDescription>
+                    Log in bij je account of gebruik een toegangscode
+                  </CardDescription>
+                </motion.div>
+              </motion.div>
+            </CardHeader>
+            <Tabs 
+              defaultValue="organizer" 
+              value={activeTab}
+              onValueChange={setActiveTab}
+            >
+              <TabsList className="grid w-full grid-cols-2 rounded-lg">
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <TabsTrigger value="organizer" className="rounded-l-lg">
+                    Organisator
+                  </TabsTrigger>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <TabsTrigger value="volunteer" className="rounded-r-lg">
+                    Postbemanning
+                  </TabsTrigger>
+                </motion.div>
+              </TabsList>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, x: activeTab === "organizer" ? -20 : 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: activeTab === "organizer" ? 20 : -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <TabsContent value="organizer">
+                    <form onSubmit={handleLogin}>
+                      <CardContent className="space-y-4 pt-4">
+                        <motion.div 
+                          className="space-y-2"
+                          variants={itemVariants}
+                        >
+                          <Label htmlFor="email">E-mail</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="jouw@email.nl"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="rounded-lg"
+                          />
+                        </motion.div>
+                        <motion.div 
+                          className="space-y-2"
+                          variants={itemVariants}
+                        >
+                          <Label htmlFor="password">Wachtwoord</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="rounded-lg"
+                          />
+                        </motion.div>
+                      </CardContent>
+                      <CardFooter className="flex flex-col space-y-2">
+                        <motion.div
+                          variants={buttonVariants}
+                          whileHover="hover"
+                          whileTap="tap"
+                          className="w-full"
+                        >
+                          <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                            {loading ? "Bezig met inloggen..." : "Inloggen"}
+                          </Button>
+                        </motion.div>
+                        <motion.div 
+                          className="text-center text-sm"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.3 }}
+                        >
+                          Nog geen account?{" "}
+                          <Link href="/register" className="text-primary hover:underline">
+                            Registreren
+                          </Link>
+                        </motion.div>
+                      </CardFooter>
+                    </form>
+                  </TabsContent>
+                  <TabsContent value="volunteer">
+                    <form onSubmit={handleVolunteerLogin}>
+                      <CardContent className="space-y-4 pt-4">
+                        <motion.div 
+                          className="space-y-2"
+                          variants={itemVariants}
+                        >
+                          <Label htmlFor="accessCode">Toegangscode</Label>
+                          <Input
+                            id="accessCode"
+                            placeholder="12345"
+                            value={accessCode}
+                            onChange={(e) => setAccessCode(e.target.value)}
+                            maxLength={5}
+                            required
+                            className="rounded-lg"
+                          />
+                        </motion.div>
+                      </CardContent>
+                      <CardFooter>
+                        <motion.div
+                          variants={buttonVariants}
+                          whileHover="hover"
+                          whileTap="tap"
+                          className="w-full"
+                        >
+                          <Button type="submit" className="w-full rounded-full" disabled={loading}>
+                            {loading ? "Bezig met inloggen..." : "Deelnemen aan evenement"}
+                          </Button>
+                        </motion.div>
+                      </CardFooter>
+                    </form>
+                  </TabsContent>
+                </motion.div>
+              </AnimatePresence>
+            </Tabs>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
