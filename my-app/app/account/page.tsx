@@ -111,9 +111,9 @@ export default function Account() {
       // First delete custom user data if you have any
       if (user) {
         const { error: userDataError } = await supabase
-          .from('user_profiles')  // Replace with your actual user table
+          .from('users')  // Replace with your actual user table
           .delete()
-          .eq('user_id', user.id)
+          .eq('id', user.id)
         
         // If you want to handle the case where there's no user_profiles entry, you can check
         // if the error is a "no rows found" type error and ignore it
