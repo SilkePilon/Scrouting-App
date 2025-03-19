@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { PlusCircle, LogOut, Clipboard, Users, MapPin } from "lucide-react"
+import { PlusCircle, LogOut, Clipboard, Users, MapPin, Trash2 } from "lucide-react"
 import { useSupabase } from "@/lib/supabase-provider"
 import type { Database } from "@/lib/database.types"
 import Link from "next/link"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 type Event = Database["public"]["Tables"]["events"]["Row"]
 type Post = Database["public"]["Tables"]["posts"]["Row"]
@@ -118,6 +119,36 @@ export default function Dashboard() {
     router.push("/")
     router.refresh()
   }
+
+  const handleDelete = async (eventId: string) => {
+    try {
+      // Delete all related data in the correct order
+      await Promise.all([
+        supabase.from("volunteer_codes").delete().eq("event_id", eventId),
+        supabase.from("walking_groups").delete().eq("event_id", eventId),
+        supabase.from("posts").delete().eq("event_id", eventId),
+      ]);
+      
+      // Finally delete the event itself
+      const { error } = await supabase.from("events").delete().eq("id", eventId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setEvents(events.filter(event => event.id !== eventId));
+      
+      toast({
+        title: "Evenement verwijderd",
+        description: "Het evenement en alle gerelateerde data zijn succesvol verwijderd.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Fout bij verwijderen",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
 
   // Show loading state while checking auth
   if (authLoading) {
@@ -234,12 +265,36 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </CardContent>
-                <CardFooter>
-                  <Link href={`/dashboard/events/${event.id}`} className="w-full">
+                <CardFooter className="flex gap-2">
+                  <Link href={`/dashboard/events/${event.id}`} className="flex-[3]">
                     <Button variant="outline" className="w-full">
                       Beheren
                     </Button>
                   </Link>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="destructive" className="flex-1">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Evenement verwijderen</DialogTitle>
+                        <DialogDescription>
+                          Weet je zeker dat je &quot;{event.name}&quot; wilt verwijderen? Deze actie kan niet ongedaan worden gemaakt.
+                          Alle gerelateerde data zoals posten, groepen en vrijwilligerscodes worden ook verwijderd.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="flex justify-end gap-2 mt-4">
+                        <DialogTrigger asChild>
+                          <Button variant="outline">Annuleren</Button>
+                        </DialogTrigger>
+                        <Button variant="destructive" onClick={() => handleDelete(event.id)}>
+                          Verwijderen
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </CardFooter>
               </Card>
             ))}
